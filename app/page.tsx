@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import type { BoothStep, ChatMessage, GenerateResponse, NoteItem } from '@/lib/types';
+import type { ChatMessage, GenerateResponse, NoteItem } from '@/lib/types';
 import { type Lang, t } from '@/lib/i18n';
 
 const quickPrompts = [
@@ -41,6 +41,8 @@ export default function HomePage() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [feedbackStatus, setFeedbackStatus] = useState('');
+  const [dispatchStatus, setDispatchStatus] = useState<'' | 'sending' | 'sent' | 'error'>('');
+  const [dispatchMode, setDispatchMode] = useState<'hardware' | 'simulated'>('simulated');
   const qrCanvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -84,10 +86,32 @@ export default function HomePage() {
       setInput('');
       setRating(0);
       setComment('');
+      setDispatchStatus('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  /** 确定：把当前配方发送给硬件自动调配 */
+  async function handleConfirm() {
+    if (!result || dispatchStatus === 'sending') return;
+    setDispatchStatus('sending');
+    setError('');
+    try {
+      const res = await fetch('/api/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: result.sessionId, formula: result.formula })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Dispatch failed');
+      setDispatchMode(data?.mode === 'hardware' ? 'hardware' : 'simulated');
+      setDispatchStatus('sent');
+    } catch (e) {
+      setDispatchStatus('error');
+      setError(e instanceof Error ? e.message : 'Dispatch failed');
     }
   }
 
@@ -100,6 +124,7 @@ export default function HomePage() {
     setRating(0);
     setComment('');
     setFeedbackStatus('');
+    setDispatchStatus('');
   }
 
   async function handleFeedback() {
@@ -147,7 +172,7 @@ export default function HomePage() {
               <button onClick={() => setLang('en')} className={lang === 'en' ? 'bg-slate-900 px-3 py-2 text-sm text-white' : 'px-3 py-2 text-sm text-slate-600'}>EN</button>
             </div>
             <div className="rounded-2xl border border-fuchsia-200 bg-white/80 px-3 py-2 text-sm text-slate-700 shadow-lg backdrop-blur">
-              {result?.mode === 'llm' ? tr('modeLLM') : tr('modeFallback')}
+              {result?.mode === 'enum' ? tr('modeEnum') : result?.mode === 'explain' ? tr('modeExplain') : tr('modeHeuristic')}
             </div>
           </div>
         </header>
@@ -190,21 +215,49 @@ export default function HomePage() {
                 placeholder={tr('inputPlaceholder')}
               />
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => handleGenerate()}
-                  disabled={loading || !input.trim()}
-                  className="rounded-2xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-5 py-3 text-sm font-medium text-white shadow-[0_12px_32px_rgba(217,70,239,0.25)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading ? tr('btnLoading') : history.length ? tr('btnContinue') : tr('btnFirst')}
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="rounded-2xl border border-fuchsia-100 bg-white/80 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-fuchsia-50"
-                >
-                  {tr('btnReset')}
-                </button>
-                <span className="text-sm text-slate-500">{tr('hintFollowUp')}</span>
+                {!result ? (
+                  <button
+                    onClick={() => handleGenerate()}
+                    disabled={loading || !input.trim()}
+                    className="rounded-2xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-5 py-3 text-sm font-medium text-white shadow-[0_12px_32px_rgba(217,70,239,0.25)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? tr('btnLoading') : tr('btnFirst')}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleConfirm}
+                      disabled={loading || dispatchStatus === 'sending'}
+                      className="rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-3 text-sm font-medium text-white shadow-[0_12px_32px_rgba(16,185,129,0.25)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {dispatchStatus === 'sending' ? tr('btnDispatchSending') : tr('btnConfirm')}
+                    </button>
+                    <button
+                      onClick={() => handleGenerate()}
+                      disabled={loading || !input.trim()}
+                      className="rounded-2xl bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-5 py-3 text-sm font-medium text-white shadow-[0_12px_32px_rgba(217,70,239,0.25)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {loading ? tr('btnLoading') : tr('btnContinue')}
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="rounded-2xl border border-fuchsia-100 bg-white/80 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-fuchsia-50"
+                    >
+                      {tr('btnRegenerate')}
+                    </button>
+                  </>
+                )}
+                {dispatchStatus === 'sent' ? (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm text-emerald-700">
+                    {tr('btnDispatched')}{dispatchMode === 'simulated' ? `（${tr('dispatchSimulated')}）` : ''}
+                  </span>
+                ) : dispatchStatus === 'error' ? (
+                  <span className="text-sm text-red-600">{tr('dispatchFailed')}</span>
+                ) : result ? (
+                  <span className="text-sm text-slate-500">{tr('dispatchHint')}</span>
+                ) : null}
               </div>
+              {result ? <p className="mt-3 text-sm text-slate-500">{tr('hintFollowUp')}</p> : null}
               {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
               {result?.debug ? (
                 <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
@@ -251,11 +304,12 @@ export default function HomePage() {
 
                   <Block title={tr('blockBlending')}>
                     <div className="space-y-3">
-                      {result.formula.boothSteps.length > 0 ? (
-                        result.formula.boothSteps.map((item, idx) => <StepRow key={`${item.material}-${idx}`} index={idx + 1} step={item} />)
-                      ) : (
-                        <p className="text-sm leading-6">{result.formula.blendingSuggestion.recommendedConcentration}</p>
-                      )}
+                      <FormulaRatioBar
+                        topNotes={result.formula.formula.topNotes}
+                        heartNotes={result.formula.formula.heartNotes}
+                        baseNotes={result.formula.formula.baseNotes}
+                        labels={{ top: tr('topNotes'), heart: tr('heartNotes'), base: tr('baseNotes') }}
+                      />
                       <p className="rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm leading-6 text-amber-900">{result.formula.safetyNote}</p>
                     </div>
                   </Block>
@@ -283,6 +337,34 @@ export default function HomePage() {
                       <NotesSection title={tr('baseNotes')} items={result.formula.formula.baseNotes} />
                     </div>
                   </Block>
+
+                  {result.formula.error ? (
+                    <Block title={tr('errorTitle')}>
+                      <p className="text-sm text-slate-600">{tr('errorHint')}</p>
+                      <div className="mt-3 space-y-3">
+                        {result.formula.error.perDimension.map((item) => (
+                          <div key={item.dim}>
+                            <div className="flex items-center justify-between text-xs text-slate-500">
+                              <span>{item.label}</span>
+                              <span>{item.target} → {item.actual}（差 {item.diff}）</span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-2">
+                              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-fuchsia-100">
+                                <div className="h-full rounded-full bg-fuchsia-500" style={{ width: `${Math.min(100, (item.target / 5) * 100)}%` }} />
+                              </div>
+                              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-cyan-100">
+                                <div className="h-full rounded-full bg-cyan-500" style={{ width: `${Math.min(100, (item.actual / 5) * 100)}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-4 border-t border-white/60 pt-3 text-sm">
+                        <p className="font-medium">{tr('labelTotalError')} = {result.formula.error.total}</p>
+                        <p className="text-slate-500">{tr('labelL1Error')} = {result.formula.error.l1}</p>
+                      </div>
+                    </Block>
+                  ) : null}
                 </div>
               )}
             </Panel>
@@ -344,15 +426,39 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function StepRow({ index, step }: { index: number; step: BoothStep }) {
+/** 香水比例展示：一条 100% 堆叠比例条 + 逐原料图例（前/中/后调用不同色） */
+function FormulaRatioBar({ topNotes, heartNotes, baseNotes, labels }: {
+  topNotes: NoteItem[];
+  heartNotes: NoteItem[];
+  baseNotes: NoteItem[];
+  labels: { top: string; heart: string; base: string };
+}) {
+  const segments = [
+    ...topNotes.map((note) => ({ ...note, role: labels.top, color: '#F472B6' })),
+    ...heartNotes.map((note) => ({ ...note, role: labels.heart, color: '#A78BFA' })),
+    ...baseNotes.map((note) => ({ ...note, role: labels.base, color: '#38BDF8' }))
+  ];
+  if (segments.length === 0) return null;
+
   return (
-    <div className="grid gap-3 rounded-2xl border border-fuchsia-100 bg-white/90 p-3 shadow-sm sm:grid-cols-[auto_1fr_auto] sm:items-center">
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-500 text-sm font-semibold text-white">{index}</div>
-      <div>
-        <p className="font-medium">{step.material}</p>
-        <p className="mt-1 text-sm text-slate-600">{step.instruction}</p>
+    <div>
+      <div className="flex h-9 w-full overflow-hidden rounded-2xl shadow-sm">
+        {segments.map((seg) => (
+          <div key={seg.name} style={{ width: `${seg.percentage}%`, backgroundColor: seg.color }} className="flex min-w-0 items-center justify-center">
+            <span className="truncate px-1 text-xs font-medium text-white">{seg.percentage}%</span>
+          </div>
+        ))}
       </div>
-      <div className="text-sm text-slate-500">{step.percentage}% · {step.distance}</div>
+      <div className="mt-3 space-y-1.5">
+        {segments.map((seg) => (
+          <div key={seg.name} className="flex items-center gap-2 text-sm">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+            <span className="text-slate-700">{seg.name}</span>
+            <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-500">{seg.role}</span>
+            <span className="ml-auto font-medium text-slate-700">{seg.percentage}%</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

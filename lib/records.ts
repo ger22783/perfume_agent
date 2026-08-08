@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { neon } from '@neondatabase/serverless';
-import type { ChatMessage, FormulaResponse } from './types';
+import type { ChatMessage, FormulaResponse, SolveMode } from './types';
 
 const recordsRoot = process.env.VERCEL ? '/tmp/perfume-booth' : path.join(process.cwd(), 'runtime');
 const recordsDir = path.join(recordsRoot, 'records');
@@ -13,7 +13,7 @@ export type BoothRecordPayload = {
   createdAt: string;
   userInput?: string;
   history?: ChatMessage[];
-  mode?: 'llm' | 'fallback';
+  mode?: SolveMode | 'llm' | 'fallback';
   replyText?: string;
   formula?: FormulaResponse;
   rating?: number;
@@ -27,7 +27,7 @@ export type BoothRecordRow = {
   createdAt: string;
   userInput: string | null;
   history: ChatMessage[] | null;
-  mode: 'llm' | 'fallback' | null;
+  mode: SolveMode | 'llm' | 'fallback' | null;
   replyText: string | null;
   formula: FormulaResponse | null;
   rating: number | null;
@@ -41,7 +41,7 @@ export type BoothSessionSummary = {
   userInput: string | null;
   replyText: string | null;
   formula: FormulaResponse | null;
-  mode: 'llm' | 'fallback' | null;
+  mode: SolveMode | 'llm' | 'fallback' | null;
   rating: number | null;
   comment: string | null;
 };

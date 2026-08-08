@@ -27,6 +27,60 @@ export function isExplanationQuestion(message: string) {
   return explanationTriggers.some((trigger) => text.includes(trigger));
 }
 
+/** 优化求解模式的解释文案：定位 + 搭配理由（依据用户目标向量与原料库职责） */
+export function buildOptimizedReply(formula: FormulaResponse): string {
+  const positioning = formula.fragrancePositioning;
+  const target = formula.targetVector;
+  const topNotes = formula.formula.topNotes;
+  const heartNotes = formula.formula.heartNotes;
+  const baseNotes = formula.formula.baseNotes;
+
+  const nameList = (notes: Array<{ name: string }>) => notes.map((note) => note.name).join('、') || '';
+  const pickMaterial = (notes: Array<{ name: string }>) => {
+    const first = notes[0];
+    return first ? boothMaterials.find((item) => item.nameZh === first.name) : undefined;
+  };
+
+  const topNames = nameList(topNotes);
+  const heartNames = nameList(heartNotes);
+  const baseNames = nameList(baseNotes);
+
+  // 依据目标向量，提炼用户最想要的气味方向（仅在用户非常明确提到时，阈值 ≥5，避免"无中生有"）
+  const desires: string[] = [];
+  if (target) {
+    if (target.facets.fresh >= 5) desires.push('想清爽');
+    if (target.facets.watery >= 5) desires.push('想要水感清凉');
+    if (target.facets.floral >= 5) desires.push('想要花香');
+    if (target.facets.woody >= 5) desires.push('想要沉稳木质');
+    if (target.facets.warm >= 5) desires.push('想要温暖感');
+    if (target.facets.sweet >= 5) desires.push('想要一点甜意');
+  }
+
+  const topReason = pickMaterial(topNotes)?.professionalRole || '负责开场的第一印象';
+  const heartReason = pickMaterial(heartNotes)?.professionalRole || '负责主体气质';
+  const baseReason = pickMaterial(baseNotes)?.professionalRole || '负责收尾与留香';
+  const stripPunct = (text: string) => text.replace(/[。！？!?]$/, '');
+
+  const allNotes = [...topNotes, ...heartNotes, ...baseNotes];
+  const main = allNotes.reduce((a, b) => (b.percentage > a.percentage ? b : a), allNotes[0]);
+
+  const parts: string[] = [];
+  parts.push(`这版定位成「${positioning.style}」，关键词${positioning.keywords.join('、')}，适合${positioning.suitableScenarios.join('、')}。`);
+
+  const desireLine = desires.length ? `考虑到你${desires.join('、')}，` : '';
+  parts.push(
+    `${desireLine}前调选了${topNames}——${stripPunct(topReason)}；` +
+    `中调以${heartNames}为主体——${stripPunct(heartReason)}；` +
+    `后调用${baseNames}收尾——${stripPunct(baseReason)}。`
+  );
+
+  if (main) {
+    parts.push(`${main.name}占比最高（${main.percentage}%），构成这瓶香水的骨架，其余原料围绕它做层次与衔接。`);
+  }
+
+  return parts.join('');
+}
+
 export function buildFormulaExplanation(message: string, formula: FormulaResponse) {
   const notes = allNotes(formula);
   const mentionedNote = notes.find((note) => message.includes(note.name));

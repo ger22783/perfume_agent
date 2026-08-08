@@ -30,7 +30,7 @@ function assertDistance(percentage: number, distance: string) {
 export function assertUsableFormula(formula: FormulaResponse) {
   const text = collectStrings(formula).join('\n');
   if (mojibakeMarkers.some((marker) => text.includes(marker))) {
-    throw new Error('LLM 返回内容疑似乱码，已切换到本地规则。');
+    throw new Error('输出内容疑似乱码，已切换到本地规则。');
   }
 
   const notes = allNotes(formula);
@@ -51,7 +51,7 @@ export function assertUsableFormula(formula: FormulaResponse) {
   notes.forEach((note) => {
     const material = materialByName.get(note.name);
     if (!material || !allowedMaterialNames.has(note.name)) {
-      throw new Error('LLM 返回了数据库外原料，已切换到本地规则。');
+      throw new Error('配方包含数据库外原料，已切换到本地规则。');
     }
     if (!material.noteRoles.includes(note.role)) {
       throw new Error(`${note.name} 不适合作为 ${note.role} 使用。`);
@@ -76,6 +76,22 @@ export function assertUsableFormula(formula: FormulaResponse) {
     assertDistance(item.percentage, item.distance);
     if (!/喷\s*1\s*下|喷一次|一喷|1\s*spray/i.test(item.instruction)) {
       throw new Error('每种原料只能喷 1 下。');
+    }
+  });
+}
+
+/** 优化求解模式下的误差校验：必须有可用的误差字段 */
+export function assertUsableError(formula: FormulaResponse) {
+  const error = formula.error;
+  if (!error || !Array.isArray(error.perDimension) || error.perDimension.length !== 7) {
+    throw new Error('优化求解结果缺少完整误差信息。');
+  }
+  if (!Number.isFinite(error.total) || error.total < 0) {
+    throw new Error('优化求解结果误差非法。');
+  }
+  error.perDimension.forEach((item) => {
+    if (!Number.isFinite(item.target) || !Number.isFinite(item.actual) || !Number.isFinite(item.diff) || item.diff < 0) {
+      throw new Error('优化求解结果逐维误差非法。');
     }
   });
 }

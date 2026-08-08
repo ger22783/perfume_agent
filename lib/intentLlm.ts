@@ -42,28 +42,23 @@ function stringArray(value: unknown) {
   return value.map((item) => String(item).trim()).filter(Boolean).slice(0, 6);
 }
 
+function mergeUnique(base: string[], extra: string[]): string[] {
+  return [...base, ...extra].filter((value, index, arr) => value && arr.indexOf(value) === index).slice(0, 8);
+}
+
 function normalizeIntent(raw: RawIntent, input: string, fallback: IntentProfile): IntentProfile {
-  const desiredFacets = facetKeys.reduce((result, key) => {
-    result[key] = clampFacet(raw.desiredFacets?.[key]);
-    return result;
-  }, {} as ScentFacets);
+  // facets 一律走本地规则：避免 LLM 对用户的隐含偏好做无中生有的推断
+  // （如「气温高」并不等于「想要清凉」，「晚上」不等于「想要温暖」）
+  const desiredFacets = fallback.desiredFacets;
 
-  if (Object.values(desiredFacets).every((value) => value === 0)) {
-    desiredFacets.fresh = fallback.desiredFacets.fresh;
-    desiredFacets.sweet = fallback.desiredFacets.sweet;
-    desiredFacets.floral = fallback.desiredFacets.floral;
-    desiredFacets.woody = fallback.desiredFacets.woody;
-    desiredFacets.watery = fallback.desiredFacets.watery;
-    desiredFacets.warm = fallback.desiredFacets.warm;
-  }
-
+  // 本地规则做底座，LLM 结果是增强：合并去重，避免 LLM 漏识别时丢失本地已识别的场景/情绪
   return {
     rawText: input,
     desiredFacets,
-    scenarios: stringArray(raw.scenarios).length ? stringArray(raw.scenarios) : fallback.scenarios,
-    moods: stringArray(raw.moods).length ? stringArray(raw.moods) : fallback.moods,
-    dislikes: stringArray(raw.dislikes).length ? stringArray(raw.dislikes) : fallback.dislikes,
-    constraints: stringArray(raw.constraints).length ? stringArray(raw.constraints) : fallback.constraints,
+    scenarios: mergeUnique(fallback.scenarios, stringArray(raw.scenarios)),
+    moods: mergeUnique(fallback.moods, stringArray(raw.moods)),
+    dislikes: mergeUnique(fallback.dislikes, stringArray(raw.dislikes)),
+    constraints: mergeUnique(fallback.constraints, stringArray(raw.constraints)),
     explanationLike: typeof raw.explanationLike === 'boolean' ? raw.explanationLike : fallback.explanationLike
   };
 }

@@ -89,6 +89,22 @@ export default async function FeedbackAdminPage() {
                       <p><span className="text-slate-500">关键词：</span>{formula?.fragrancePositioning?.keywords?.join('、') || '-'}</p>
                       <p><span className="text-slate-500">场景：</span>{formula?.fragrancePositioning?.suitableScenarios?.join('、') || '-'}</p>
                     </Block>
+                    <Block title="求解模式与误差">
+                      <p><span className="text-slate-500">模式：</span>{formula?.solveMode || session.mode || '-'}</p>
+                      {formula?.error ? (
+                        <>
+                          <p><span className="text-slate-500">总误差 ||Aw−y||²：</span>{formula.error.total}</p>
+                          <p><span className="text-slate-500">L1 误差：</span>{formula.error.l1}</p>
+                          <div className="mt-2 space-y-0.5">
+                            {formula.error.perDimension.map((item) => (
+                              <p key={item.dim} className="text-xs text-slate-400">
+                                {item.label}：目标 {item.target} → 实际 {item.actual}（差 {item.diff}）
+                              </p>
+                            ))}
+                          </div>
+                        </>
+                      ) : <p className="text-slate-500">无误差数据（启发式/历史记录）</p>}
+                    </Block>
                     <Block title="配方结构">
                       <p><span className="text-slate-500">前调：</span>{noteLine(formula?.formula?.topNotes)}</p>
                       <p><span className="text-slate-500">中调：</span>{noteLine(formula?.formula?.heartNotes)}</p>

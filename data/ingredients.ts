@@ -195,7 +195,7 @@ export const boothMaterials: BoothMaterial[] = [
     facets: { fresh: 5, sweet: 0, floral: 0, woody: 0, watery: 2, warm: 0 },
     intensity: 2,
     description: '绿茶清爽，适合快速试喷，也能让甜香更轻。',
-    professionalRole: '负责干净茶感和清爽主体，是路演中最安全的低门槛原料之一。',
+    professionalRole: '负责干净茶感和清爽主体，是低门槛配方里最安全的原料之一。',
     pairingTips: ['搭配柑橘做清爽通勤', '搭配桂花乌龙做花茶', '搭配咖啡降低厚重感'],
     avoidWhen: ['用户明确想要浓郁甜暖或晚会华丽感时不做主角']
   },

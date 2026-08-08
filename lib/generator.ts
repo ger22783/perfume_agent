@@ -1,5 +1,6 @@
 import { boothMaterials, type BoothMaterial, type NoteRole } from '@/data/ingredients';
 import { analyzeIntent } from './intent';
+import { buildTargetVector } from './intentVector';
 import { selectMaterials, type SelectionPlan } from './materialSelector';
 import type { BoothStep, FormulaResponse, NoteItem } from './types';
 
@@ -101,10 +102,10 @@ function buildFormula(plan: SelectionPlan): FormulaResponse {
         ? '温暖沉稳氛围香'
         : '清爽花茶日常香';
   const keywords = [
-    ...(plan.intent.moods.length ? plan.intent.moods.slice(0, 2) : ['清爽', '易接受']),
+    ...(plan.intent.moods.length ? plan.intent.moods.slice(0, 2) : ['易接受', '有个性']),
     ...(plan.intent.constraints.includes('低门槛') ? ['低门槛'] : ['有层次'])
   ].slice(0, 3);
-  const scenarios = plan.intent.scenarios.length ? plan.intent.scenarios : ['路演体验', '日常试香'];
+  const scenarios = plan.intent.scenarios.length ? plan.intent.scenarios : ['日常使用', '个性定制'];
 
   return {
     fragrancePositioning: {
@@ -114,42 +115,48 @@ function buildFormula(plan: SelectionPlan): FormulaResponse {
     },
     formula: notes,
     blendingSuggestion: {
-      recommendedConcentration: `按前调、中调、后调顺序喷在同一张试香纸上，每种原料 1 下，每步等待 10 秒，最后自然晾干 2-3 分钟再评价。`
+      recommendedConcentration: `配方按前调 → 中调 → 后调顺序，由 Aromacell 自动按比例调配。`
     },
     boothSteps: notesToSteps(notes.topNotes, notes.heartNotes, notes.baseNotes),
     finalEffect: {
       opening: `${topNames || '前调'}先给出第一印象，让香气开场更明亮、更容易接近。`,
       heart: `${heartNames || '中调'}负责主体性格，让香气从单一气味变成有主题的体验。`,
-      drydown: `${baseNames || '后调'}负责收尾和稳定度，让试香纸晾干后仍有记忆点。`,
-      sillage: allNotes.some((item) => item.percentage >= 35) ? '中等，适合展台近距离闻香' : '轻到中等，适合第一次体验',
-      longevity: '体验卡约 3-6 小时，现场建议以晾干 2-3 分钟后的效果为准'
+      drydown: `${baseNames || '后调'}负责收尾和稳定度，让香水从新鲜开场过渡到有记忆点的尾调。`,
+      sillage: allNotes.some((item) => item.percentage >= 35) ? '中等扩散，适合近距离闻香' : '轻到中等扩散，适合第一次体验',
+      longevity: '约 3-6 小时留香，建议使用后 2-3 小时左右观察尾调变化'
     },
     adjustments: {
       fresher: '想更清爽，下一轮提高绿茶、柑橘或海风类前调，降低香草、咖啡和厚重木质。',
       softer: '想更柔和，下一轮增加桂花乌龙或水影浆果，让边缘更圆润。',
       longerLasting: '想更持久，下一轮可以小幅提高乌木、玫瑰木质或香草类后调。'
     },
-    safetyNote: '请喷在试香纸上，避开眼睛、口鼻和伤口；过敏者谨慎体验。'
+    safetyNote: '请在通风处使用，避开眼睛、口鼻和伤口；过敏体质请先小范围试用。'
   };
 }
 
 function buildReply(formula: FormulaResponse) {
-  const firstMaterial = formula.formula.heartNotes[0]?.name || formula.formula.topNotes[0]?.name || formula.formula.baseNotes[0]?.name || '';
+  const allNotes = [...formula.formula.topNotes, ...formula.formula.heartNotes, ...formula.formula.baseNotes];
+  const main = allNotes.reduce((a, b) => (b.percentage > a.percentage ? b : a), allNotes[0]);
+  const mainName = main?.name || formula.formula.heartNotes[0]?.name || '中调主体';
 
   return [
     `这版定位成「${formula.fragrancePositioning.style}」，关键词是${formula.fragrancePositioning.keywords.join('、')}，适合${formula.fragrancePositioning.suitableScenarios.join('、')}。`,
-    `核心选材围绕${firstMaterial || '中调主体'}展开：${roleText(firstMaterial)}整体会先建立清晰第一印象，再过渡到主体气质，最后留下稳定的尾调记忆点。`,
-    `下面的配方卡已经列出具体比例和步骤；如果想微调，可以直接说“更清爽”“更柔和”或“更持久”。`
+    `核心选材以${mainName}为主体：${roleText(mainName)}`
   ].join('');
 }
 
 export async function generateFallback(input: string, plan?: SelectionPlan) {
   const selectionPlan = plan || selectMaterials(analyzeIntent(input));
   const formula = buildFormula(selectionPlan);
+  const targetVector = buildTargetVector(selectionPlan.intent);
 
   return {
-    mode: 'fallback' as const,
+    mode: 'heuristic' as const,
     replyText: buildReply(formula),
-    formula
+    formula: {
+      ...formula,
+      targetVector,
+      solveMode: 'heuristic' as const
+    }
   };
 }
