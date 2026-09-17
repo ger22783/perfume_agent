@@ -5,3 +5,5 @@ node_modules/
 tsconfig.tsbuildinfo
 runtime/
 data/records/
+__pycache__/
+*.py[cod]

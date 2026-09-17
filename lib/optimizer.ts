@@ -54,20 +54,23 @@ const DIM_LABELS: Record<(typeof TARGET_DIMS)[number], string> = {
 const MAX_ITER = 3000;
 const TOL = 1e-9;
 
-/** 候选池：同一种原料出现在多个调性组时，只保留得分最高的角色 */
+/**
+ * 同一种原料只进入候选池一次。双角色原料优先分配给候选更少的稀缺角色，
+ * 避免五泵配置里玫瑰先占 heart 后导致 base 无候选，同时控制枚举规模。
+ */
 function buildPool(plan: SelectionPlan): PoolItem[] {
   const roles: Array<'top' | 'heart' | 'base'> = ['top', 'heart', 'base'];
-  const best = new Map<string, { score: number; role: PoolItem['role']; candidate: MaterialCandidate }>();
+  const best = new Map<string, PoolItem>();
   for (const role of roles) {
     for (const candidate of plan[role]) {
-      const key = candidate.material.nameZh;
+      const key = candidate.material.id;
       const existing = best.get(key);
-      if (!existing || candidate.score > existing.score) {
-        best.set(key, { score: candidate.score, role, candidate });
+      if (!existing || plan[role].length < plan[existing.role].length) {
+        best.set(key, { candidate, role });
       }
     }
   }
-  return [...best.values()].map(({ role, candidate }) => ({ candidate, role }));
+  return [...best.values()];
 }
 
 function combinations<T>(items: T[], size: number): T[][] {
@@ -299,6 +302,8 @@ export function solveFormula(plan: SelectionPlan, target: TargetVector): SolverO
   let best: SolvedCombo | null = null;
   for (const size of [3, 4, 5]) {
     for (const combo of combinations(pool, size)) {
+      const materialIds = new Set(combo.map((item) => item.candidate.material.id));
+      if (materialIds.size !== combo.length) continue;
       const roles = new Set(combo.map((item) => item.role));
       if (!(roles.has('top') && roles.has('heart') && roles.has('base'))) continue;
       const solved = solveSubset(combo, y, yRaw, W);

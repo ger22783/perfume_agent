@@ -26,7 +26,7 @@ export const t = {
     en: 'Example: It is hot today. I want something fresh, not sweet, and commute-friendly.'
   },
   btnFirst: { zh: '生成配方', en: 'Create formula' },
-  btnConfirm: { zh: '确定', en: 'Confirm' },
+  btnConfirm: { zh: '确定并调配', en: 'Confirm and blend' },
   btnContinue: { zh: '继续修改', en: 'Refine' },
   btnRegenerate: { zh: '重新生成', en: 'Restart' },
   btnLoading: { zh: '生成中...', en: 'Generating...' },
@@ -38,6 +38,16 @@ export const t = {
     zh: '确定后将配方发送到 Aromacell 自动调配；继续修改则按输入框里的新需求调整。',
     en: 'Confirm to send this formula to your Aromacell for automatic mixing; or refine it with a new request.'
   },
+  hardwarePreviewTitle: { zh: 'Aromacell 加注预览', en: 'Aromacell dosing preview' },
+  hardwarePreviewHint: {
+    zh: '百分比已换算为克数；确认后将按泵号顺序加注。',
+    en: 'Percentages are converted to grams and dispensed sequentially by pump.'
+  },
+  batchWeight: { zh: '总质量', en: 'Total weight' },
+  pumpLabel: { zh: '泵', en: 'Pump ' },
+  executionResultTitle: { zh: '硬件执行结果', en: 'Hardware execution result' },
+  targetWeight: { zh: '目标', en: 'Target' },
+  actualWeight: { zh: '实际', en: 'Actual' },
   hintFollowUp: {
     zh: '也可以继续说：更清爽一点 / 不要玫瑰 / 更甜一点 / 更适合雨天',
     en: 'Try: fresher / no rose / sweeter / more rainy-day friendly'

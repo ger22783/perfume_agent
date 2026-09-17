@@ -21,7 +21,7 @@
 ```
 用户自然语言
   → 意图解析（LLM 可选 / 本地规则兜底）
-  → 目标香气向量 y（7 维��清爽/甜感/花香/木质/水感/温暖/强度）
+  → 目标香气向量 y（7 维：清爽/甜感/花香/木质/水感/温暖/强度）
   → 原料香气矩阵 A（每种原料的标定向量）
   → 约束优化求解 w：minimize ΣW·(Aw−y)²
       s.t. Σw=1、比例在推荐范围、避开禁忌、覆盖前/中/后调
@@ -39,11 +39,11 @@
 ## 核心功能
 
 - 根据用户需求生成前调、中调、后调结构（固定标定，不临时判断）。
-- 只使用 `data/ingredients.ts` 中的展台原料，不输出暂未排好的瓶身编号。
+- 自动调配时只使用 `data/hardwareProfile.ts` 中五个泵当前装载的原料。
 - 每次选择 3-5 种原料，比例总和必须为 100。
 - 约束优化保证：比例落在原料推荐使用范围内、避开用户禁忌、至少覆盖 1 前调 + 1 中调 + 1 后调。
 - 展示目标向量 y、配方预测香气 Aw、逐维误差与总误差。
-- 「确定」：调用 `/api/dispatch` 把配方下发给 Aromacell 自动调配出香水（未配置 `HARDWARE_API_URL` 时为模拟发送）。
+- 「确定并调配」：选择总质量，把百分比确定性换算为泵号和克数，再经本机 Hardware Bridge 下发。
 - 「继续修改」：按输入框中的新需求沿当前配方继续调整。
 - 「重新生成」：清空会话，从全新需求开始。
 - 支持短轮对话和追问，不限制对话轮数。
@@ -69,11 +69,13 @@ app/
   admin/feedback/page.tsx   反馈与生成记录后台页
   api/
     generate/route.ts       生成配方（意图→目标向量→优化求解→解释）
+    dispatch/route.ts       百分比→克数→本机 Hardware Bridge
     feedback/route.ts       评分反馈接口
     records/route.ts        记录查询与 CSV 下载接口
 
 data/
   ingredients.ts            展台香水原料知识库（facets 6 维 + intensity + noteRoles）
+  hardwareProfile.ts        五泵当前装载的原料映射
   styleTemplates.ts         风格示例数据
 
 lib/
@@ -82,6 +84,7 @@ lib/
   intentVector.ts           意图 → 目标香气向量 y / 权重 W / 禁忌
   materialSelector.ts       原料评分与候选短名单模块
   optimizer.ts              约束优化求解器（枚举 + 投影梯度下降）★核心
+  hardwareRecipe.ts         配方百分比→泵号与克数（0.1g 精度）
   generator.ts              启发式兜底配方生成器
   validation.ts             输出校验（原料在库/3-5种/总和100/步骤一致/误差合法）
   explain.ts                “为什么/作用”追问处理 + 误差驱动解释
@@ -90,7 +93,56 @@ lib/
   records.ts                Neon Postgres / 本地 JSONL 记录层
   types.ts                  共享类型与输出清洗（含 TargetVector / VectorError）
   i18n.ts                   中英文界面文案
+
+hardware/
+  bridge.py                 localhost HTTP → 串口执行桥
+  pump_host.py              可复用的 STM32 串口执行器与 CLI
+  requirements.txt          Python 依赖
 ```
+
+## Aromacell 硬件连接
+
+Agent 与 STM32 之间传递的是 JSON，不是喷距，也不需要硬件侧再次调用 LLM：
+
+```text
+浏览器 → Next.js /api/dispatch → http://127.0.0.1:8765/v1/jobs
+       → Python Bridge → D1 5.0 → STM32 → DONE actual=...
+```
+
+当前五泵装载方案：
+
+```text
+泵1 日系柑橘
+泵2 海上风铃
+泵3 桂花乌龙
+泵4 无人之境玫瑰
+泵5 法国香草
+```
+
+先安装并启动默认 dry-run 的 Bridge：
+
+```powershell
+python -m pip install -r hardware/requirements.txt
+python -m uvicorn hardware.bridge:app --host 127.0.0.1 --port 8765
+```
+
+另开一个 PowerShell 启动 Agent：
+
+```powershell
+Copy-Item .env.example .env.local
+npm install
+npm run dev
+```
+
+确认网页的克数预览和执行结果正确后，才连接真机：
+
+```powershell
+$env:HARDWARE_SERIAL_PORT="COM10"
+$env:HARDWARE_DRY_RUN="false"
+python -m uvicorn hardware.bridge:app --host 127.0.0.1 --port 8765
+```
+
+更完整的安全说明见 `hardware/README.md`。
 
 ## 环境变量
 
@@ -101,7 +153,8 @@ OPENAI_MODEL=deepseek-v4-flash
 EXPLAIN_LLM=false           # true 时用 LLM 润色解释文案
 DATABASE_URL=               # Neon（也可用 POSTGRES_URL 等）
 POSTGRES_URL=
-HARDWARE_API_URL=           # Aromacell 网关地址（可选）；未配置时「确定」为模拟发送
+HARDWARE_API_URL=http://127.0.0.1:8765/v1/jobs
+HARDWARE_API_TOKEN=         # 可选；需与本机 Bridge 保持一致
 ```
 
 数据库由 Vercel Neon 集成提供。首次写入或读取时，系统会自动创建 `booth_records` 表。
@@ -136,7 +189,13 @@ http://127.0.0.1:3000
 npx vitest run
 ```
 
-覆盖：意图解析否定语境、目标向量映射、优化求解器（结构约束/误差/最优性）。
+覆盖：意图解析、目标向量、优化求解器、五泵原料限制、百分比→克数与泵位映射。
+
+Python 主机测试：
+
+```powershell
+python -m unittest hardware.test_pump_host -v
+```
 
 ## 部署
 
@@ -146,7 +205,7 @@ npx vercel deploy --prod --yes
 
 ## 维护注意
 
-- 暂时不要给 `data/ingredients.ts` 添加实体瓶身编号，展台瓶身排序还未最终确定。
+- 换瓶时修改 `data/hardwareProfile.ts`；不要把泵号散落到提示词或原料数据库。
 - 修改中文文案后，运行乱码扫描，避免历史编码问题回归。
 - 解释追问必须保留当前配方，避免用户问“为什么要加 X”时系统答非所问并重新生成。
 - 新增原料时必须补齐 `facets`（6 维 0-5）、`intensity`（1-5）、`noteRoles`、`usageRange`，否则优化器无法求解。

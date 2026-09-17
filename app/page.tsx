@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import type { ChatMessage, GenerateResponse, NoteItem } from '@/lib/types';
 import { type Lang, t } from '@/lib/i18n';
+import {
+  BATCH_GRAM_OPTIONS,
+  buildHardwareSteps,
+  DEFAULT_BATCH_GRAMS,
+  type DispatchResponse,
+  type HardwareStep
+} from '@/lib/hardwareRecipe';
 
 const quickPrompts = [
   '清爽、不甜、适合夏天通勤',
@@ -43,6 +50,8 @@ export default function HomePage() {
   const [feedbackStatus, setFeedbackStatus] = useState('');
   const [dispatchStatus, setDispatchStatus] = useState<'' | 'sending' | 'sent' | 'error'>('');
   const [dispatchMode, setDispatchMode] = useState<'hardware' | 'simulated'>('simulated');
+  const [batchGrams, setBatchGrams] = useState<number>(DEFAULT_BATCH_GRAMS);
+  const [dispatchDetails, setDispatchDetails] = useState<DispatchResponse | null>(null);
   const qrCanvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -87,6 +96,7 @@ export default function HomePage() {
       setRating(0);
       setComment('');
       setDispatchStatus('');
+      setDispatchDetails(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -103,10 +113,15 @@ export default function HomePage() {
       const res = await fetch('/api/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: result.sessionId, formula: result.formula })
+        body: JSON.stringify({
+          sessionId: result.sessionId,
+          formula: result.formula,
+          targetTotalG: batchGrams
+        })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Dispatch failed');
+      setDispatchDetails(data?.recipe && Array.isArray(data?.results) ? data : null);
+      if (!res.ok || data?.ok === false) throw new Error(data?.error || 'Hardware execution failed');
       setDispatchMode(data?.mode === 'hardware' ? 'hardware' : 'simulated');
       setDispatchStatus('sent');
     } catch (e) {
@@ -125,6 +140,7 @@ export default function HomePage() {
     setComment('');
     setFeedbackStatus('');
     setDispatchStatus('');
+    setDispatchDetails(null);
   }
 
   async function handleFeedback() {
@@ -145,6 +161,16 @@ export default function HomePage() {
       setFeedbackStatus(tr('feedbackThanks'));
     } catch (e) {
       setFeedbackStatus(e instanceof Error ? e.message : 'Feedback failed');
+    }
+  }
+
+  let hardwarePreview: HardwareStep[] = [];
+  let hardwarePreviewError = '';
+  if (result) {
+    try {
+      hardwarePreview = buildHardwareSteps(result.formula, batchGrams);
+    } catch (previewError) {
+      hardwarePreviewError = previewError instanceof Error ? previewError.message : 'Hardware recipe unavailable';
     }
   }
 
@@ -214,6 +240,44 @@ export default function HomePage() {
                 className="mt-3 min-h-[150px] w-full resize-none rounded-2xl border border-fuchsia-100 bg-white/90 p-4 text-sm outline-none transition focus:border-fuchsia-400"
                 placeholder={tr('inputPlaceholder')}
               />
+              {result ? (
+                <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-950">{tr('hardwarePreviewTitle')}</p>
+                      <p className="mt-1 text-xs text-emerald-800">{tr('hardwarePreviewHint')}</p>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-emerald-950">
+                      <span>{tr('batchWeight')}</span>
+                      <select
+                        value={batchGrams}
+                        onChange={(event) => {
+                          setBatchGrams(Number(event.target.value));
+                          setDispatchStatus('');
+                          setDispatchDetails(null);
+                        }}
+                        className="rounded-xl border border-emerald-200 bg-white px-3 py-2 outline-none"
+                      >
+                        {BATCH_GRAM_OPTIONS.map((grams) => (
+                          <option key={grams} value={grams}>{grams}g</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {hardwarePreviewError ? (
+                    <p className="mt-3 text-sm text-red-600">{hardwarePreviewError}</p>
+                  ) : (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {hardwarePreview.map((step) => (
+                        <div key={step.pump} className="flex items-center justify-between rounded-xl bg-white/90 px-3 py-2 text-sm">
+                          <span>{tr('pumpLabel')}{step.pump} · {step.materialName}</span>
+                          <span className="font-semibold text-emerald-800">{step.grams.toFixed(1)}g</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {!result ? (
                   <button
@@ -257,6 +321,21 @@ export default function HomePage() {
                   <span className="text-sm text-slate-500">{tr('dispatchHint')}</span>
                 ) : null}
               </div>
+              {dispatchDetails ? (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white/80 p-4">
+                  <p className="text-sm font-semibold">{tr('executionResultTitle')}</p>
+                  <div className="mt-2 space-y-2">
+                    {dispatchDetails.results.map((step) => (
+                      <div key={`${dispatchDetails.recipe.jobId}-${step.pump}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span>{tr('pumpLabel')}{step.pump} · {step.materialName}</span>
+                        <span className={step.ok ? 'text-emerald-700' : 'text-red-600'}>
+                          {tr('targetWeight')} {step.grams.toFixed(1)}g · {tr('actualWeight')} {step.actualG === null ? '-' : `${step.actualG.toFixed(1)}g`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {result ? <p className="mt-3 text-sm text-slate-500">{tr('hintFollowUp')}</p> : null}
               {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
               {result?.debug ? (

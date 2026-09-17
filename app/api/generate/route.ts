@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { activeMaterialIds } from '@/data/hardwareProfile';
 import { buildFormulaExplanation, buildOptimizedReply, isExplanationQuestion } from '@/lib/explain';
 import { generateFallback } from '@/lib/generator';
 import { analyzeIntentWithLLM } from '@/lib/intentLlm';
@@ -85,7 +86,8 @@ export async function POST(req: NextRequest) {
     }
 
     const intent = await analyzeIntentWithLLM(message);
-    const selectionPlan = selectMaterials(intent);
+    // 自动调配模式只允许选择当前五个泵实际装载的原料。
+    const selectionPlan = selectMaterials(intent, activeMaterialIds);
     const target = buildTargetVector(intent);
 
     // 2) 还没有配方就问「为什么」：引导先生成，同时兜底返回一版配方

@@ -34,7 +34,12 @@ function notesToSteps(topNotes: NoteItem[], heartNotes: NoteItem[], baseNotes: N
 function pickMaterial(plan: SelectionPlan, role: NoteRole, fallbackId: string, used: Set<string>) {
   const roleCandidates = role === 'top' ? plan.top : role === 'heart' ? plan.heart : plan.base;
   const candidate = roleCandidates.find((item) => !used.has(item.material.nameZh));
-  const material = candidate?.material || boothMaterials.find((item) => item.id === fallbackId) || boothMaterials[0];
+  const profileFallback = plan.candidates.find((item) => item.material.id === fallbackId && item.material.noteRoles.includes(role) && !used.has(item.material.nameZh));
+  const anyRoleFallback = plan.candidates.find((item) => item.material.noteRoles.includes(role) && !used.has(item.material.nameZh));
+  const material = candidate?.material || profileFallback?.material || anyRoleFallback?.material;
+  if (!material) {
+    throw new Error(`当前硬件原料无法补足 ${role} 调性。`);
+  }
   used.add(material.nameZh);
   return material;
 }
@@ -50,11 +55,12 @@ function buildNotes(plan: SelectionPlan) {
   const wantsWoody = plan.intent.desiredFacets.woody >= 4;
   const wantsWatery = plan.intent.desiredFacets.watery >= 4;
 
+  // 先保留最稀缺的后调位置，避免双角色原料先被中调占用后无可用 base。
+  const baseA = pickMaterial(plan, 'base', wantsSweet ? 'french-vanilla' : wantsWoody ? 'smoky-agarwood' : 'desert-rose', used);
   const topA = pickMaterial(plan, 'top', wantsWatery ? 'sea-breeze-bell' : 'green-tea', used);
   const topB = pickMaterial(plan, 'top', 'japanese-citrus', used);
   const heartA = pickMaterial(plan, 'heart', wantsSweet ? 'osmanthus-oolong' : 'jasmine-floral-ring', used);
-  const heartB = pickMaterial(plan, 'heart', wantsWatery ? 'watery-berry' : 'osmanthus-oolong', used);
-  const baseA = pickMaterial(plan, 'base', wantsSweet ? 'french-vanilla' : wantsWoody ? 'smoky-agarwood' : 'desert-rose', used);
+  const heartB = plan.heart.find((item) => !used.has(item.material.nameZh))?.material;
 
   let topNotes: NoteItem[] = [
     { name: topA.nameZh, percentage: clampUsage(topA, 22) },
@@ -67,7 +73,7 @@ function buildNotes(plan: SelectionPlan) {
     { name: baseA.nameZh, percentage: clampUsage(baseA, 24) }
   ];
 
-  if (heartB.nameZh !== heartA.nameZh && topNotes.length + heartNotes.length + baseNotes.length < 5) {
+  if (heartB && heartB.nameZh !== heartA.nameZh && topNotes.length + heartNotes.length + baseNotes.length < 5) {
     heartNotes.push({ name: heartB.nameZh, percentage: clampUsage(heartB, 8) });
   }
 

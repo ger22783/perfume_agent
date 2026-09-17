@@ -109,8 +109,10 @@ function bestByRole(candidates: MaterialCandidate[], role: NoteRole, intent: Int
     .slice(0, 4);
 }
 
-export function selectMaterials(intent: IntentProfile): SelectionPlan {
+export function selectMaterials(intent: IntentProfile, allowedMaterialIds?: readonly string[]): SelectionPlan {
+  const allowed = allowedMaterialIds ? new Set(allowedMaterialIds) : null;
   const candidates = boothMaterials
+    .filter((material) => !allowed || allowed.has(material.id))
     .map((material) => scoreMaterial(intent, material))
     .sort((a, b) => b.score - a.score);
 
