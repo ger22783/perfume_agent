@@ -47,7 +47,7 @@ export function analyzeIntent(input: string): IntentProfile {
 
   // 否定语境预检：用户说「不要太甜/别太甜」时，不能反向命中单字「甜」，
   // 而应写入「甜腻」禁忌。同理处理「不要太腻」。
-  const notSweet = includesAny(text, ['不要甜', '不甜', '别太甜', '不要太甜', '不要腻', '不腻', '不要太腻', '不喜甜', '讨厌甜']);
+  const notSweet = includesAny(text, ['不要甜', '不甜', '别太甜', '不要太甜', '不要腻', '不腻', '不要太腻', '不喜甜', '讨厌甜', 'not sweet', 'no sweet', 'not sugary', "don't want sweet"]);
   if (notSweet) {
     addUnique(profile.dislikes, ['甜腻']);
   }

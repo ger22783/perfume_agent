@@ -64,6 +64,31 @@ describe('目标向量映射（intentVector）', () => {
     const target = buildTargetVector(profile);
     expect(target.intensity).toBeGreaterThanOrEqual(3);
   });
+
+  it('目标向量无 0 维度（平衡基线，避免稀疏目标导致误差大）', () => {
+    const profile = analyzeIntent('大晚上，气温比较高');
+    const target = buildTargetVector(profile);
+    expect(target.facets.fresh).toBeGreaterThan(0);
+    expect(target.facets.sweet).toBeGreaterThan(0);
+    expect(target.facets.floral).toBeGreaterThan(0);
+    expect(target.facets.woody).toBeGreaterThan(0);
+    expect(target.facets.watery).toBeGreaterThan(0);
+    expect(target.facets.warm).toBeGreaterThan(0);
+    expect(target.intensity).toBeGreaterThan(0);
+  });
+
+  it('甜腻禁忌将 sweet 压低到接近 0 但非 0', () => {
+    const profile = analyzeIntent(SUMMER_COMMUTE);
+    const target = buildTargetVector(profile);
+    expect(target.facets.sweet).toBeLessThanOrEqual(0.5);
+    expect(target.facets.sweet).toBeGreaterThan(0);
+  });
+
+  it('显式偏好叠加到基线上（清爽 → fresh 达到偏好值）', () => {
+    const profile = analyzeIntent(SUMMER_COMMUTE);
+    const target = buildTargetVector(profile);
+    expect(target.facets.fresh).toBeGreaterThanOrEqual(5);
+  });
 });
 
 describe('约束优化求解器（optimizer）', () => {

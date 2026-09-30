@@ -4,8 +4,8 @@ export const t = {
   siteTitle: { zh: 'Perfume Agent · 定制香水', en: 'Perfume Agent · Custom' },
   heroTitle: { zh: '几十秒，生成属于你的专属香水', en: 'Your signature perfume in seconds' },
   heroDesc: {
-    zh: '告诉它你今天想要的感觉——清爽、水感、木质还是甜暖。Agent 会从原料库中求解出最贴近你需求的配方，一键发送到你的 Aromacell，由它按比例自动调配出专属于你的香水。',
-    en: 'Tell it how you want to feel today. The agent solves the formula that fits you best, then sends it to your Aromacell to craft your signature perfume.'
+    zh: '告诉它你今天想要的感觉——清爽、水感、木质还是甜暖，你今天的任何需求——约会、开会还是参加户外活动，或者今天的天气情况。Agent 会从原料库中求解出最贴近你需求的配方，一键发送到你的 Aromacell，由它按比例自动调配出专属于你的香水。',
+    en: 'Tell it how you want to feel today — fresh, watery, woody or warm — or what your day looks like: a date, a meeting, outdoor time, or just the weather. The agent solves the formula that fits you best and sends it to your Aromacell to craft your signature perfume.'
   },
   qrHint: { zh: '扫码在手机上体验', en: 'Scan to try on your phone' },
   modeEnum: { zh: '约束优化', en: 'Optimized' },
@@ -44,6 +44,52 @@ export const t = {
   },
   quickTitle: { zh: '快速选择', en: 'Quick picks' },
   quickHint: { zh: '点击任意需求即可生成', en: 'Click any prompt to generate' },
+  quickPrompts: {
+    zh: [
+      '清爽、不甜、适合夏天通勤',
+      '雨天、安静、像图书馆',
+      '温柔一点，适合约会',
+      '木质、沉稳、适合阅读',
+      '甜一点，但不要腻',
+      '适合面试，干净、有亲和力',
+      '适合运动后，清凉、轻盈',
+      '适合晚会，成熟、有记忆点',
+      '像白衬衫，皂感、低调',
+      '适合睡前，放松、柔和',
+      '想要茶香，不要太花',
+      '想要高级感，但不要太浓',
+      '今天心情低落，想要治愈一点',
+      '适合拍照打卡，明亮、有氛围',
+      '适合秋冬，温暖、木质',
+      '想要海风感，清透、干净',
+      '适合第一次体验，安全不出错',
+      '像刚洗完澡，清洁、舒服',
+      '有咖啡感，但不要太苦',
+      '像校园午后，轻松、有茶感'
+    ],
+    en: [
+      'Fresh, not sweet, for a summer commute',
+      'Rainy, calm, like a library',
+      'Soft and gentle, for a date',
+      'Woody, steady, for reading',
+      'A bit sweet, but not cloying',
+      'Clean & friendly, for an interview',
+      'Cool & light, after a workout',
+      'Elegant & memorable, for a party',
+      'Like a white shirt, soapy & understated',
+      'Soft & relaxing, before bed',
+      'Tea-like, not too floral',
+      'Sophisticated but not too strong',
+      'Feeling down today, want something soothing',
+      'Bright & atmospheric, photo-ready',
+      'Warm & woody, for autumn & winter',
+      'Sea breeze, clear & clean',
+      'Safe & easy, first-time friendly',
+      'Just showered, clean & comfy',
+      'Coffee-like but not bitter',
+      'Campus afternoon, easy & tea-like'
+    ]
+  },
   historyTitle: { zh: '调整记录', en: 'Refinement history' },
   historyEmpty: {
     zh: '生成后可以继续输入新需求，让 Agent 沿着上一版配方调整。',
