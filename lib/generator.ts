@@ -106,9 +106,12 @@ function buildFormula(plan: SelectionPlan, lang: Lang = 'zh'): FormulaResponse {
   const notes = buildNotes(plan);
   const allNotes = [...notes.topNotes, ...notes.heartNotes, ...notes.baseNotes];
   const joiner = lang === 'en' ? ' and ' : '和';
-  const topNames = notes.topNotes.map((item) => item.name).join(joiner);
-  const heartNames = notes.heartNotes.map((item) => item.name).join(joiner);
-  const baseNames = notes.baseNotes.map((item) => item.name).join(joiner);
+  const displayName = (nameZh: string) => (lang === 'en'
+    ? (boothMaterials.find((item) => item.nameZh === nameZh)?.nameEn || nameZh)
+    : nameZh);
+  const topNames = notes.topNotes.map((item) => displayName(item.name)).join(joiner);
+  const heartNames = notes.heartNotes.map((item) => displayName(item.name)).join(joiner);
+  const baseNames = notes.baseNotes.map((item) => displayName(item.name)).join(joiner);
   const en = lang === 'en';
   const style = plan.intent.moods.includes('浪漫')
     ? en ? 'Restrained floral signature' : '克制花香记忆款'

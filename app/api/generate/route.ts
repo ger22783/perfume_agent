@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response);
     }
 
-    const intent = await analyzeIntentWithLLM(message);
+    const { intent, source: intentSource } = await analyzeIntentWithLLM(message);
     const selectionPlan = selectMaterials(intent);
     const target = buildTargetVector(intent);
 
@@ -128,7 +128,8 @@ export async function POST(req: NextRequest) {
         mode: 'enum' as const,
         sessionId,
         replyText,
-        formula
+        formula,
+        intentSource
       };
 
       await recordGeneration({
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
         sessionId,
         replyText: fallback.replyText,
         formula,
+        intentSource,
         debug: solverError instanceof Error ? solverError.message : 'Unknown solver error'
       };
 

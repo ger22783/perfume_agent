@@ -15,7 +15,7 @@ export default function HomePage() {
   const [lang, setLang] = useState<Lang>('zh');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<(GenerateResponse & { debug?: string }) | null>(null);
+  const [result, setResult] = useState<(GenerateResponse & { debug?: string; intentSource?: 'llm' | 'local' }) | null>(null);
   const [sessionId, setSessionId] = useState('');
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ChatMessage[]>([]);
@@ -152,6 +152,12 @@ export default function HomePage() {
               <span className="mode-dot" />
               {result?.mode === 'enum' ? tr('modeEnum') : result?.mode === 'explain' ? tr('modeExplain') : tr('modeHeuristic')}
             </span>
+            {result?.intentSource && (
+              <span className={`mode-pill intent-pill${result.intentSource === 'llm' ? ' is-live' : ''}`}>
+                <span className="mode-dot" />
+                {result.intentSource === 'llm' ? tr('intentLlm') : tr('intentLocal')}
+              </span>
+            )}
             <div className="language-switch" aria-label="Language">
               <button onClick={() => setLang('zh')} className={lang === 'zh' ? 'is-active' : ''}>中文</button>
               <button onClick={() => setLang('en')} className={lang === 'en' ? 'is-active' : ''}>EN</button>

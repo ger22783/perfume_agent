@@ -10,6 +10,8 @@ export const t = {
   qrHint: { zh: '扫码在手机上体验', en: 'Scan to try on your phone' },
   modeEnum: { zh: '约束优化', en: 'Optimized' },
   modeHeuristic: { zh: '演示模式', en: 'Demo mode' },
+  intentLlm: { zh: 'AI 需求理解 · 已连接', en: 'AI intent · live' },
+  intentLocal: { zh: '本地需求理解', en: 'Local intent' },
   modeExplain: { zh: '配方解释', en: 'Explanation' },
   modeLLM: { zh: '在线模型', en: 'Live model' },
   modeFallback: { zh: '演示模式', en: 'Demo mode' },

@@ -63,10 +63,12 @@ function normalizeIntent(raw: RawIntent, input: string, fallback: IntentProfile)
   };
 }
 
-export async function analyzeIntentWithLLM(input: string): Promise<IntentProfile> {
+export type IntentAnalysis = { intent: IntentProfile; source: 'llm' | 'local' };
+
+export async function analyzeIntentWithLLM(input: string): Promise<IntentAnalysis> {
   const fallback = analyzeIntent(input);
   const apiKey = getEnv('OPENAI_API_KEY');
-  if (!apiKey) return fallback;
+  if (!apiKey) return { intent: fallback, source: 'local' };
 
   const baseUrl = normalizeBaseUrl(getEnv('OPENAI_BASE_URL') || 'https://api.openai.com/v1');
   const model = getEnv('OPENAI_MODEL') || 'gpt-4.1-mini';
@@ -102,13 +104,13 @@ export async function analyzeIntentWithLLM(input: string): Promise<IntentProfile
       })
     });
 
-    if (!response.ok) return fallback;
+    if (!response.ok) return { intent: fallback, source: 'local' };
     const data = await response.json();
     const content = data?.choices?.[0]?.message?.content || '';
-    if (!content) return fallback;
-    return normalizeIntent(extractJsonObject(content), input, fallback);
+    if (!content) return { intent: fallback, source: 'local' };
+    return { intent: normalizeIntent(extractJsonObject(content), input, fallback), source: 'llm' };
   } catch {
-    return fallback;
+    return { intent: fallback, source: 'local' };
   } finally {
     clearTimeout(timeout);
   }

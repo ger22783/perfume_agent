@@ -2,6 +2,13 @@ import type { SelectionPlan, MaterialCandidate } from './materialSelector';
 import type { BoothStep, FormulaResponse, NoteItem, TargetVector, VectorError } from './types';
 import { TARGET_DIMS, targetVectorToArray, weightsToArray } from './intentVector';
 import type { Lang } from './i18n';
+import { boothMaterials } from '@/data/ingredients';
+
+/** 英文模式下把中文原料名换成英文名（查不到时原样返回） */
+function localizedNoteName(nameZh: string, lang: Lang): string {
+  if (lang !== 'en') return nameZh;
+  return boothMaterials.find((item) => item.nameZh === nameZh)?.nameEn || nameZh;
+}
 
 /**
  * 约束优化求解器（lib/optimizer.ts）
@@ -252,9 +259,9 @@ function buildFormula(items: PoolItem[], w: number[], plan: SelectionPlan, targe
       max.percentage += 100 - total;
     }
   }
-  const topNames = topNotes.map((note) => note.name).join(lang === 'en' ? ' and ' : '和');
-  const heartNames = heartNotes.map((note) => note.name).join(lang === 'en' ? ' and ' : '和');
-  const baseNames = baseNotes.map((note) => note.name).join(lang === 'en' ? ' and ' : '和');
+  const topNames = topNotes.map((note) => localizedNoteName(note.name, lang)).join(lang === 'en' ? ' and ' : '和');
+  const heartNames = heartNotes.map((note) => localizedNoteName(note.name, lang)).join(lang === 'en' ? ' and ' : '和');
+  const baseNames = baseNotes.map((note) => localizedNoteName(note.name, lang)).join(lang === 'en' ? ' and ' : '和');
 
   const intent = plan.intent;
   const style = intent.moods.includes('浪漫')
